@@ -1,3 +1,3 @@
-package day12 
+package main
 
-func Solution2(){}
+func Solution2() {}
