@@ -1,5 +1,184 @@
 package main
 
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+)
+
+func ReadInput(fileName string) ([]string, error) {
+	file, err := os.Open(fileName)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	var content []string
+	for scanner.Scan() {
+		content = append(content, scanner.Text())
+	}
+	return content, nil
+}
+
+const key = "%d:%d"
+
+type Region struct {
+	area      int
+	perimeter int
+	positions map[string]struct{}
+}
+
+func getRegion(s []string, x, y int, checked map[string]struct{}, region *Region) {
+	region.area++
+	region.perimeter += 4
+	region.positions[fmt.Sprintf(key, x, y)] = struct{}{}
+	if x > 0 && s[y][x-1] == s[y][x] {
+		if _, ok := checked[fmt.Sprintf(key, x-1, y)]; !ok {
+			checked[fmt.Sprintf(key, x-1, y)] = struct{}{}
+			getRegion(s, x-1, y, checked, region)
+		}
+		region.perimeter--
+	}
+	if x < len(s[0])-1 && s[y][x+1] == s[y][x] {
+		if _, ok := checked[fmt.Sprintf(key, x+1, y)]; !ok {
+			checked[fmt.Sprintf(key, x+1, y)] = struct{}{}
+			getRegion(s, x+1, y, checked, region)
+		}
+		region.perimeter--
+	}
+	if y > 0 && s[y-1][x] == s[y][x] {
+		if _, ok := checked[fmt.Sprintf(key, x, y-1)]; !ok {
+			checked[fmt.Sprintf(key, x, y-1)] = struct{}{}
+			getRegion(s, x, y-1, checked, region)
+		}
+		region.perimeter--
+	}
+	if y < len(s)-1 && s[y+1][x] == s[y][x] {
+		if _, ok := checked[fmt.Sprintf(key, x, y+1)]; !ok {
+			checked[fmt.Sprintf(key, x, y+1)] = struct{}{}
+			getRegion(s, x, y+1, checked, region)
+		}
+		region.perimeter--
+	}
+}
+
+func calculateRegions(s []string) []Region {
+	var regions []Region
+	checked := make(map[string]struct{})
+	for y := 0; y < len(s); y++ {
+		for x := 0; x < len(s[y]); x++ {
+			if _, ok := checked[fmt.Sprintf(key, x, y)]; !ok {
+				region := Region{
+					positions: make(map[string]struct{}),
+				}
+				checked[fmt.Sprintf(key, x, y)] = struct{}{}
+				getRegion(s, x, y, checked, &region)
+				regions = append(regions, region)
+			}
+		}
+	}
+	return regions
+}
+
+func getSides(region map[string]struct{}) int {
+	sides := 0
+	for k, _ := range region {
+		parts := strings.Split(k, ":")
+		x, _ := strconv.Atoi(parts[0])
+		y, _ := strconv.Atoi(parts[1])
+		_, left := region[fmt.Sprintf(key, x-1, y)]
+		_, right := region[fmt.Sprintf(key, x+1, y)]
+		_, up := region[fmt.Sprintf(key, x, y-1)]
+		_, down := region[fmt.Sprintf(key, x, y+1)]
+		_, upperLeft := region[fmt.Sprintf(key, x-1, y-1)]
+		_, upperRight := region[fmt.Sprintf(key, x+1, y-1)]
+		_, downLeft := region[fmt.Sprintf(key, x-1, y+1)]
+		_, downRight := region[fmt.Sprintf(key, x+1, y+1)]
+		if !left && !up {
+			sides++
+		}
+		if !right && !up {
+			sides++
+		}
+		if !left && !down {
+			sides++
+		}
+		if !right && !down {
+			sides++
+		}
+		if !upperRight && up && right {
+			sides++
+		}
+		if !upperLeft && up && left {
+			sides++
+		}
+		if !downLeft && down && left {
+			sides++
+		}
+		if !downRight && down && right {
+			sides++
+		}
+	}
+	return sides
+}
+
+// getArea Not used because is calculated directly in getRegion
+func getArea(region map[string]struct{}) int {
+	return len(region)
+}
+
+// getPerimeter Not used because is calculated directly in getRegion
+func getPerimeter(region map[string]struct{}) int {
+	totalPerimeter := 0
+	for k, _ := range region {
+		parts := strings.Split(k, ":")
+		x, _ := strconv.Atoi(parts[0])
+		y, _ := strconv.Atoi(parts[1])
+		perimeter := 4 // 4 sides for each single "pixel"
+		if _, left := region[fmt.Sprintf(key, x-1, y)]; left {
+			perimeter--
+		}
+		if _, right := region[fmt.Sprintf(key, x+1, y)]; right {
+			perimeter--
+		}
+		if _, up := region[fmt.Sprintf(key, x, y-1)]; up {
+			perimeter--
+		}
+		if _, down := region[fmt.Sprintf(key, x, y+1)]; down {
+			perimeter--
+		}
+		totalPerimeter += perimeter
+	}
+	return totalPerimeter
+}
+
+func getPrices(s []string) int {
+	regions := calculateRegions(s)
+	result := 0
+	for _, region := range regions {
+		result += region.area * region.perimeter
+		//result += getArea(region.positions) * getPerimeter(region.positions)
+	}
+	return result
+}
+
+func getPrices2(s []string) int {
+	regions := calculateRegions(s)
+	result := 0
+	for _, region := range regions {
+		result += region.area * getSides(region.positions)
+		//result += getArea(region.positions) * getSides(region.positions)
+	}
+	return result
+}
+
 func main() {
-	Solution2()
+	absPathName, _ := filepath.Abs("./input1.txt")
+	output, _ := ReadInput(absPathName)
+
+	fmt.Println(getPrices(output))
+	fmt.Println(getPrices2(output))
 }
